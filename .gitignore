@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment and sensitive keys
+.env
+.env.local
+.env.*.local
+*.key
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
