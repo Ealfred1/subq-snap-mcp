@@ -4,15 +4,43 @@ Fast Model Context Protocol (MCP) server exposing **SubQ Snap** (`subq-snap-prev
 
 ---
 
+## 💡 How It Saves Your AI Assistant Credits (Context Offloading)
+
+Standard coding assistants charge you per input token. If your assistant reads a 100,000-token log file or 15 codebase files into its context, you waste significant LLM tokens and hit context limits.
+
+This MCP server solves that by **reading disk and commands locally inside the MCP process**, bypassing your primary model's context window completely:
+
+```
+❌ Traditional LLM Flow (Burns Context Credits):
+[100k Token Log File] ──> Read by Assistant ($$$) ──> Sent to Tool
+
+✅ SubQ Context-Offloaded Flow (Saves 99.9% Credits):
+Assistant sends: { file_paths: ["/var/log/app.log"] }  (~15 tokens)
+MCP reads file locally on disk ──> Streams 384k tokens directly to SubQ Snap ($0.005)
+Assistant receives: "payment_service.py"  (~5 tokens)
+```
+
+---
+
+## 🛠️ Available MCP Tools
+
+| Tool | Credit-Saving Benefit | Description |
+|---|---|---|
+| `evaluate_files` | **Saves 99%+ Tokens** | Reads file paths or glob patterns directly from disk without passing file content through the assistant. |
+| `evaluate_command` | **Saves 99%+ Tokens** | Runs a local shell command (e.g. `npm test`, `pytest`, `git diff`, `docker logs`) and pipes stdout/stderr straight into SubQ Snap. |
+| `evaluate_decision` | Direct evaluation | Accepts raw in-memory context string, query, and candidates. |
+
+---
+
 ## 🚀 Quick Setup (New Machine / Another PC)
 
 ### Prerequisites
 - **Python 3.10+**
 - Git
 
-### 1. Clone or Copy the Repository
+### 1. Clone the Repository
 ```bash
-git clone <your-repo-url> subq
+git clone https://github.com/Ealfred1/subq-snap-mcp.git subq
 cd subq/subq-mcp-server
 ```
 
@@ -32,7 +60,7 @@ cp .env.example .env
 ```
 
 ### 3. Add Your SubQ API Key
-Edit the `.env` file in `subq-mcp-server/`:
+Edit `.env` in `subq-mcp-server/`:
 ```bash
 SUBQ_API_KEY=your_subq_api_key_here
 SUBQ_API_URL=https://api.subq.ai/v1/systemone
@@ -43,7 +71,7 @@ SUBQ_MODEL=subq-snap-preview
 
 ## 🔌 Registering with AI Coding Assistants
 
-Find the absolute path to your environment on your new PC:
+Find the absolute path to your environment on your machine:
 - **macOS / Linux**:
   - Python: `/path/to/subq/subq-mcp-server/.venv/bin/python`
   - Script: `/path/to/subq/subq-mcp-server/server.py`
@@ -110,37 +138,12 @@ Add to your `claude_desktop_config.json`:
 
 ---
 
-## 🛠️ Testing the Server
+## 💬 Prompts to Save Credits
 
-You can run an end-to-end decision check directly from terminal:
+Instead of asking your agent to read files or run tests in chat:
 
-```bash
-./.venv/bin/python -c '
-import asyncio
-from server import evaluate_decision
+- **Pinpoint test failures without reading giant logs**:
+  > *"Run `evaluate_command` with `npm test` to tell me which test suite failed among `[auth, billing, checkout]`."*
 
-async def test():
-    res = await evaluate_decision(
-        context="Error: connect ECONNREFUSED 127.0.0.1:5432 in db.js:42",
-        query="Which service is failing to connect?",
-        candidates=["PostgreSQL database", "Redis cache", "Auth server"]
-    )
-    print("Result:", res)
-
-asyncio.run(test())
-'
-```
-
-Output:
-```
-Result: PostgreSQL database (confidence: 98.24%)
-```
-
----
-
-## 💬 How Your Coding Assistant Uses It
-
-Prompt your assistant naturally:
-> *"Check the terminal output and use the evaluate_decision tool to pinpoint which test failed instead of reading the whole raw file."*
-
-The model offloads context processing to SubQ Snap, saving context tokens and returning decisions in sub-second time.
+- **Scan multiple files without loading them into context**:
+  > *"Use `evaluate_files` on `['src/**/*.py']` to find which file defines the JWT expiration logic."*
